@@ -1,79 +1,56 @@
 #include <stdio.h>
 #include <string.h>
-#include "tinyjambu.h"
+#include "crypto_aead.h"
 
 #define KEY_SIZE 16
 #define NONCE_SIZE 16
 #define TAG_SIZE 16
 #define BLOCK_SIZE 64
 
-void encrypt(unsigned char* plaintext, int plaintext_len,
-             unsigned char* key, unsigned char* nonce,
-             unsigned char* ciphertext, unsigned char* tag) {
-    unsigned char block[BLOCK_SIZE];
-    int i, j;
-    
-    /* Initialize the TinyJAMBU state with the key and nonce */
-    tinyjambu_state state;
-    tinyjambu_init(&state, KEY_SIZE, key, NONCE_SIZE, nonce);
-    
-    /* Generate the keystream blocks and XOR with the plaintext to produce the ciphertext */
-    for (i = 0; i < plaintext_len; i += BLOCK_SIZE) {
-        tinyjambu_generate(&state, block);
-        for (j = 0; j < BLOCK_SIZE && i+j < plaintext_len; j++) {
-            ciphertext[i+j] = plaintext[i+j] ^ block[j];
-        }
-    }
-    
-    /* Generate the MAC using the HMAC-SHA256 algorithm */
-    hmac_sha256(key, KEY_SIZE, ciphertext, plaintext_len, tag);
-}
 
-int decrypt(unsigned char* ciphertext, int ciphertext_len,
-            unsigned char* key, unsigned char* nonce,
-            unsigned char* tag, unsigned char* plaintext) {
-    unsigned char block[BLOCK_SIZE];
-    int i, j;
-    
-    /* Initialize the TinyJAMBU state with the key and nonce */
-    tinyjambu_state state;
-    tinyjambu_init(&state, KEY_SIZE, key, NONCE_SIZE, nonce);
-    
-    /* Generate the keystream blocks and XOR with the ciphertext to produce the plaintext */
-    for (i = 0; i < ciphertext_len; i += BLOCK_SIZE) {
-        tinyjambu_generate(&state, block);
-        for (j = 0; j < BLOCK_SIZE && i+j < ciphertext_len; j++) {
-            plaintext[i+j] = ciphertext[i+j] ^ block[j];
-        }
-    }
-    
-    /* Verify the MAC using the HMAC-SHA256 algorithm */
-    return hmac_sha256_verify(key, KEY_SIZE, ciphertext, ciphertext_len, tag);
-}
+#define KEYBYTES 32
+#define NONCEBYTES 12
+#define TAGBYTES 8
 
 int main() {
-    /* Generate a random key and nonce */
-    unsigned char key[KEY_SIZE];
-    unsigned char nonce[NONCE_SIZE];
-    get_random_bytes(key, KEY_SIZE);
-    get_random_bytes(nonce, NONCE_SIZE);
-    
-    /* Encrypt and authenticate a message */
-    unsigned char plaintext[] = "Hello, world!";
-    int plaintext_len = strlen(plaintext);
+    unsigned char key[KEYBYTES] = {0}; // use a random key instead of all zeros
+    unsigned char nonce[NONCEBYTES] = {0}; // use a random nonce instead of all zeros
+    unsigned char ad[] = {0}; // no associated data
+    unsigned long long adlen = 0;
+    unsigned char plaintext[] = "hello world";
+    unsigned long long plaintext_len = strlen(plaintext);
     unsigned char ciphertext[plaintext_len];
-    unsigned char tag[TAG_SIZE];
-    encrypt(plaintext, plaintext_len, key, nonce, ciphertext, tag);
-    
-    /* Decrypt and verify the message */
-    unsigned char decrypted[plaintext_len];
-    int verified = decrypt(ciphertext, plaintext_len, key, nonce, tag, decrypted);
-    
-    if (verified) {
-        printf("Decrypted message: %s\n", decrypted);
-    } else {
-        printf("Message authentication failed!\n");
+    unsigned long long ciphertext_len = 0;
+    unsigned char tag[TAGBYTES] = {0};
+
+    int ret = crypto_aead_encrypt(ciphertext, &ciphertext_len,
+                                  plaintext, plaintext_len,
+                                  ad, adlen,
+                                  NULL , // no additional authenticated data
+                                  nonce,
+                                  key);
+
+    if (ret != 0) {
+        printf("Encryption failed\n");
+        return 1;
     }
-    
+
+    printf("Ciphertext: ");
+    for (int i = 0; i < plaintext_len; i++) {
+        printf("%c", ciphertext[i]);
+    }
+    printf("\n");
+
+	int inv = crypto_aead_decrypt(plaintext, &plaintext_len, NULL, ciphertext, ciphertext_len, ad, adlen, nonce, key);
+
+	if(inv != 0){
+		printf("Decrypt failed");
+		return 1;
+	}
+	printf("Plaintext: ");
+	for(int i= 0; i < plaintext_len; i++){
+		printf("%c", plaintext[i]);
+	}
+
     return 0;
 }
