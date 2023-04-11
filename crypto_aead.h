@@ -15,6 +15,7 @@ int crypto_aead_encrypt(
   const unsigned char *npub,
   const unsigned char *k);
 
+char* imageToString(char* imagePath);
 // generating a plaintext m[0],m[1],...,m[*mlen-1]
 // and secret message number nsec[0],nsec[1],...
 // from a ciphertext c[0],c[1],...,c[clen-1]

@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <string.h>
 #include "crypto_aead.h"
+#include <stdlib.h>
 
 #define KEY_SIZE 16
 #define NONCE_SIZE 16
@@ -17,7 +18,11 @@ int main() {
     unsigned char nonce[NONCEBYTES] = {0}; // use a random nonce instead of all zeros
     unsigned char ad[] = {0}; // no associated data
     unsigned long long adlen = 0;
-    unsigned char plaintext[] = "hello world";
+    unsigned char* plaintext = malloc(sizeof(unsigned char));
+
+    printf("insert plain text :");
+    scanf("%s", plaintext);
+
     unsigned long long plaintext_len = strlen(plaintext);
     unsigned char ciphertext[plaintext_len];
     unsigned long long ciphertext_len = 0;
@@ -54,3 +59,5 @@ int main() {
 
     return 0;
 }
+
+
