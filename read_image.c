@@ -67,11 +67,79 @@ unsigned char* imageToString(char* imagePath) {
     return output;
 }
 
-// Example usage
-// int main() {
-//     char* imagePath = "example.png";
-//     char* imageString = imageToString(imagePath);
-//     printf("%s", imageString);
-//     free(imageString); // Free memory used by output string
-//     return 0;
-// }
+// Function to decode Base64 encoded string to binary data
+unsigned char* base64Decode(const char* input, size_t inputLen, size_t* outputLen) {
+    const char* base64Chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+    size_t padding = 0;
+    if (input[inputLen - 1] == '=') {
+        padding++;
+    }
+    if (input[inputLen - 2] == '=') {
+        padding++;
+    }
+    *outputLen = inputLen * 3 / 4 - padding;
+    unsigned char* output = (unsigned char*) malloc(*outputLen);
+    memset(output, 0, *outputLen);
+
+    uint32_t sextet_a, sextet_b, sextet_c, sextet_d, triple;
+    int i, j;
+    for (i = 0, j = 0; i < inputLen;) {
+        sextet_a = input[i] == '=' ? 0 & i++ : base64Chars[(unsigned char)input[i++]];
+        sextet_b = input[i] == '=' ? 0 & i++ : base64Chars[(unsigned char)input[i++]];
+        sextet_c = input[i] == '=' ? 0 & i++ : base64Chars[(unsigned char)input[i++]];
+        sextet_d = input[i] == '=' ? 0 & i++ : base64Chars[(unsigned char)input[i++]];
+
+        triple = (sextet_a << 3 * 6) + (sextet_b << 2 * 6) + (sextet_c << 1 * 6) + (sextet_d << 0 * 6);
+
+        if (j < *outputLen) {
+            output[j++] = (triple >> 2 * 8) & 0xFF;
+        }
+        if (j < *outputLen) {
+            output[j++] = (triple >> 1 * 8) & 0xFF;
+        }
+        if (j < *outputLen) {
+            output[j++] = (triple >> 0 * 8) & 0xFF;
+        }
+    }
+
+    return output;
+}
+
+// Function to write binary data to image file
+void writeImageFile(char* imagePath, unsigned char* imageData, size_t imageSize) {
+    FILE *imageFile;
+
+    // Open image file in binary write mode
+    imageFile = fopen(imagePath, "wb");
+    if (imageFile == NULL) {
+        fputs("File error", stderr);
+        exit(1);
+    }
+
+    // Write image binary data to file
+    fwrite(imageData, 1, imageSize, imageFile);
+
+    // Close image file
+    fclose(imageFile);
+}
+
+// Function to decode string to image binary data and write to image file
+void stringToImage(char* imagePath, char* imageString) {
+    size_t inputSize = strlen(imageString);
+    size_t outputSize;
+    unsigned char* imageData = base64Decode(imageString, inputSize, &outputSize);
+    writeImageFile(imagePath, imageData, outputSize);
+    free(imageData); // Free memory used by image binary data
+}
+
+//Example usage
+int main() {
+    char* imagePath = "example.png";
+    char* imageString = imageToString(imagePath);
+    
+
+    char* imagePathOut = "output.png";
+    stringToImage(imagePathOut, imageString);
+    //free(imageString); // Free memory used by output string
+    return 0;
+}
