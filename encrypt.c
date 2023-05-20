@@ -62,9 +62,9 @@ void initialization(const unsigned char *key, const unsigned char *iv, unsigned 
 }
 
 //process the associated data   
-void process_ad(const unsigned char *k, const unsigned char *ad, unsigned long long adlen, unsigned int *state)
+void process_ad(const unsigned char *k, const unsigned char *ad, unsigned long adlen, unsigned int *state)
 {
-	unsigned long long i; 
+	unsigned long i; 
 	unsigned int j; 
 
 	for (i = 0; i < (adlen >> 2); i++)
@@ -86,15 +86,15 @@ void process_ad(const unsigned char *k, const unsigned char *ad, unsigned long l
 
 //encrypt a message  
 int crypto_aead_encrypt(
-	unsigned char *c,unsigned long long *clen,
-	const unsigned char *m,unsigned long long mlen,
-	const unsigned char *ad,unsigned long long adlen,
+	unsigned char *c,unsigned long *clen,
+	const unsigned char *m,unsigned long mlen,
+	const unsigned char *ad,unsigned long adlen,
 	const unsigned char *nsec,
 	const unsigned char *npub,
 	const unsigned char *k
 	)
 {
-	unsigned long long i;
+	unsigned long i;
 	unsigned int j; 
 	unsigned char mac[8]; 
 	unsigned int state[4];   
@@ -144,15 +144,15 @@ int crypto_aead_encrypt(
 
 //decrypt a message
 int crypto_aead_decrypt(
-	unsigned char *m,unsigned long long *mlen,
+	unsigned char *m,unsigned long *mlen,
 	unsigned char *nsec,
-	const unsigned char *c,unsigned long long clen,
-	const unsigned char *ad,unsigned long long adlen,
+	const unsigned char *c,unsigned long clen,
+	const unsigned char *ad,unsigned long adlen,
 	const unsigned char *npub,
 	const unsigned char *k
 	)
 {
-	unsigned long long i;
+	unsigned long i;
 	unsigned int j, check = 0;
  	unsigned char mac[8];
 	unsigned int state[4];

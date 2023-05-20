@@ -77,7 +77,7 @@ unsigned char* base64Decode(const char* input, size_t inputLen, size_t* outputLe
     if (input[inputLen - 2] == '=') {
         padding++;
     }
-    *outputLen = inputLen * 3 / 4 - padding;
+    *outputLen = (inputLen * 3) / 4 - padding;
     unsigned char* output = (unsigned char*) malloc(*outputLen);
     memset(output, 0, *outputLen);
 
@@ -133,13 +133,13 @@ void stringToImage(char* imagePath, char* imageString) {
 }
 
 //Example usage
-int main() {
-    char* imagePath = "example.png";
-    char* imageString = imageToString(imagePath);
+// int main() {
+//     char* imagePath = "example.png";
+//     char* imageString = imageToString(imagePath);
     
 
-    char* imagePathOut = "output.png";
-    stringToImage(imagePathOut, imageString);
-    //free(imageString); // Free memory used by output string
-    return 0;
-}
+//     char* imagePathOut = "output.png";
+//     stringToImage(imagePathOut, imageString);
+//     //free(imageString); // Free memory used by output string
+//     return 0;
+// }

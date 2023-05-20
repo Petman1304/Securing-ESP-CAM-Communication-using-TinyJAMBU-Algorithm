@@ -1,8 +1,9 @@
 #include <stdio.h>
 #include <string.h>
-#include "crypto_aead.h"
+
 #include <stdlib.h>
 
+#include "crypto_aead.h"
 #define KEY_SIZE 16
 #define NONCE_SIZE 16
 #define TAG_SIZE 16
@@ -17,15 +18,15 @@ int main() {
     unsigned char key[KEYBYTES] = {0}; // use a random key instead of all zeros
     unsigned char nonce[NONCEBYTES] = {0}; // use a random nonce instead of all zeros
     unsigned char ad[] = {0}; // no associated data
-    unsigned long long adlen = 0;
-    unsigned char* plaintext = malloc(sizeof(unsigned char));
+    unsigned long adlen = 0;
+    unsigned char* plaintext = imageToString("example2.png");
 
-    printf("insert plain text :");
-    scanf("%s", plaintext);
+    // printf("insert plain text :");
+    // scanf("%s", plaintext);
 
-    unsigned long long plaintext_len = strlen(plaintext);
+    unsigned long plaintext_len = strlen(plaintext);
     unsigned char ciphertext[plaintext_len];
-    unsigned long long ciphertext_len = 0;
+    unsigned long ciphertext_len = 0;
     unsigned char tag[TAGBYTES] = {0};
 
     int ret = crypto_aead_encrypt(ciphertext, &ciphertext_len,
@@ -40,21 +41,30 @@ int main() {
         return 1;
     }
 
-    printf("Ciphertext: ");
-    for (int i = 0; i < plaintext_len; i++) {
-        printf("%c", ciphertext[i]);
-    }
+    FILE* filePointer = fopen("output.txt", "w"); // Open file in write mode
+    if (filePointer != NULL) { // Check if file was successfully opened
+        
+        fprintf(filePointer, "Plaintext : \n");
+        fprintf(filePointer, "%s", plaintext);
+        fprintf(filePointer, "\n \n");
+        fprintf(filePointer, "Ciphertext:");
+        fprintf(filePointer, "%s", ciphertext); // Write string to file
+        fprintf(filePointer, "\n \n ");
+        }
     printf("\n");
 
-	int inv = crypto_aead_decrypt(plaintext, &plaintext_len, NULL, ciphertext, ciphertext_len, ad, adlen, nonce, key);
+    unsigned char decrypt[ciphertext_len];
+	int inv = crypto_aead_decrypt(decrypt, &plaintext_len, NULL, ciphertext, ciphertext_len, ad, adlen, nonce, key);
+
+    stringToImage("output1.txt", decrypt);
+
+    fprintf(filePointer, "Decrypt : \n");
+    fprintf(filePointer, "%d", decrypt);
+    fclose(filePointer);
 
 	if(inv != 0){
 		printf("Decrypt failed");
 		return 1;
-	}
-	printf("Plaintext: ");
-	for(int i= 0; i < plaintext_len; i++){
-		printf("%c", plaintext[i]);
 	}
 
     return 0;
