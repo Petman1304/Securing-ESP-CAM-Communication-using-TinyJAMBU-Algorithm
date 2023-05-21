@@ -1,6 +1,7 @@
 #include <Arduino.h>
 #include <string.h>
 #include "tinyjambu_crypto_aead.h"
+#include <PubSubClient.h>
 //#include "read_image.c"
 #include <SPIFFS.h>
 #include "WiFi.h"
@@ -17,6 +18,7 @@
 #include "Base64.h"
 #include <stdio.h>
 #include <stdlib.h>
+#include <Wire.h>
 
 #define KEY_SIZE 16
 #define NONCE_SIZE 16
@@ -27,6 +29,13 @@
 #define KEYBYTES 32
 #define NONCEBYTES 12
 #define TAGBYTES 8
+
+WiFiClient espClient;
+PubSubClient client(espClient);
+unsigned long lastMsg = 0;
+#define MSG_BUFFER_SIZE	(50)
+char msg[MSG_BUFFER_SIZE];
+int value = 0;
 
 #define FILE_PHOTO "/photo.jpg"
 
@@ -51,6 +60,140 @@
 // Replace with your network credentials
 const char* ssid = "Edulag";
 const char* password = "98765432";
+const char* mqtt_server = "broker.mqtt-dashboard.com";
+
+unsigned char key[KEY_SIZE] = { 0 };      // use a random key instead of all zeros
+unsigned char nonce[NONCEBYTES] = { 0 };  // use a random nonce instead of all zeros
+unsigned char ad[] = { 0 };               // no associated data
+unsigned long adlen = 0;
+
+void callback(char* topic, byte* payload, unsigned int length) {
+  Serial.print("Message arrived [");
+  Serial.print(topic);
+  Serial.print("] ");
+  for (int i = 0; i < length; i++) {
+    Serial.print((char)payload[i]);
+  }
+  Serial.println();
+
+  Serial.println("Payload length: " + String(length)); // Menampilkan panjang payload
+  char receivedPayload[length + 1];
+  memcpy(receivedPayload, payload, length);
+  receivedPayload[length] = '\0';
+
+}
+
+void reconnect() {
+  // Loop until we're reconnected
+  while (!client.connected()) {
+    Serial.print("Attempting MQTT connection...");
+    // Create a random client ID
+    String clientId = "ESP8266Client-";
+    clientId += String(random(0xffff), HEX);
+    // Attempt to connect
+    if (client.connect(clientId.c_str())) {
+      Serial.println("connected");
+      // Once connected, publish an announcement...
+      client.publish("peemce", "hi i'm steve");
+      // ... and resubscribe
+      client.subscribe("peemce");
+    } else {
+      Serial.print("failed, rc=");
+      Serial.print(client.state());
+      Serial.println(" try again in 5 seconds");
+      // Wait 5 seconds before retrying
+      delay(5000);
+    }
+  }
+}
+
+// Check if photo capture was successful
+bool checkPhoto(fs::FS& fs) {
+  File f_pic = fs.open(FILE_PHOTO);
+  unsigned int pic_sz = f_pic.size();
+  return (pic_sz > 100);
+}
+
+
+// Capture Photo and Save it to SPIFFS
+void capturePhotoSaveSpiffs(void) {
+  camera_fb_t* fb = NULL;  // pointer
+  bool ok = 0;             // Boolean indicating if the picture has been taken correctly
+
+  do {
+    // Take a photo with the camera
+    Serial.println("Taking a photo...");
+
+    fb = esp_camera_fb_get();
+    if (!fb) {
+      Serial.println("Camera capture failed");
+      ok = 0;
+    }
+  
+  
+    Serial.printf("Picture file name: %s\n", FILE_PHOTO);
+    File file = SPIFFS.open(FILE_PHOTO, FILE_WRITE);
+
+    // Insert the data in the photo file
+    if (!file) {
+      Serial.println("Failed to open file in writing mode");
+    } else {
+      file.write(fb->buf, fb->len);  // payload (image), payload length
+      Serial.print("The picture has been saved in ");
+      Serial.print(FILE_PHOTO);
+      Serial.print(" - Size: ");
+      Serial.print(file.size());
+      Serial.println(" bytes");
+    }
+    // Close the file
+    file.close();
+    esp_camera_fb_return(fb);
+
+    // check if file has been correctly saved in SPIFFS
+    ok = checkPhoto(SPIFFS);
+  } while (!ok);
+}
+
+unsigned char* read_image(void){
+  File file = SPIFFS.open(FILE_PHOTO, "r");
+  if (!file) {
+    Serial.println("Failed to open file");
+    exit(1);
+  }
+
+  size_t fileSize = file.size();
+  std::unique_ptr<uint8_t[]> imageData(new uint8_t[fileSize]);
+  if (file.readBytes(reinterpret_cast<char*>(imageData.get()), fileSize) != fileSize) {
+    Serial.println("Error reading file");
+    exit(2);
+  }
+  file.close();
+
+  String base64Image = base64::encode(imageData.get(), fileSize);
+  unsigned char* buffer = (unsigned char*) malloc (base64Image.length() + 1);
+  //new unsigned char[base64Image.length() + 1];
+  Serial.println("DEbug 1");
+  Serial.println(base64Image.length());
+
+  // Serial.println("Base64 Image:");
+  // Serial.println(base64Image);
+  
+  Serial.println("DEbug 2");
+  // Copy the string to the unsigned char buffer
+  mystrlcpy((char*)buffer, base64Image.c_str(), fileSize);
+
+  return(buffer);
+}
+
+void mystrlcpy(char* dst, const char* src, size_t size) {
+  size_t srcLen = strlen(src);
+  Serial.println(srcLen);
+  //size_t copyLen = srcLen >= size ? size - 1 : srcLen;
+  //Serial.println(copyLen);
+  memcpy(dst, src, srcLen);
+  Serial.println("DEbug 5");
+  dst[srcLen] = '\0';
+}
 
 
 
@@ -64,6 +207,9 @@ void setup() {
     delay(1000);
     Serial.println("Connecting to WiFi...");
   }
+  
+  client.setServer(mqtt_server, 1883);
+  client.setCallback(callback);
 
   if (!SPIFFS.begin(true)) {
     Serial.println("An Error has occurred while mounting SPIFFS");
@@ -117,13 +263,17 @@ void setup() {
     Serial.printf("Camera init success!");
   }
 
-  
-  capturePhotoSaveSpiffs();
+  client.setServer(mqtt_server, 1883);
+  client.setCallback(callback);
+}
 
-  unsigned char key[KEY_SIZE] = { 0 };      // use a random key instead of all zeros
-  unsigned char nonce[NONCEBYTES] = { 0 };  // use a random nonce instead of all zeros
-  unsigned char ad[] = { 0 };               // no associated data
-  unsigned long adlen = 0;
+void loop() {
+  if (!client.connected()) {
+    reconnect();
+  }
+  client.loop();
+
+  capturePhotoSaveSpiffs();
   unsigned char* plaintext = read_image();
   Serial.println("DEbug 6");
   unsigned long long plaintext_len = strlen((char*)plaintext);
@@ -155,6 +305,14 @@ void setup() {
   Serial.printf("%d", ciphertext_len);
   Serial.printf("%s\n", ciphertext);
 
+  //publish ke mqtt
+  if (client.publish("peemce", (const char*)ciphertext, ciphertext_len)) {
+      Serial.println("Encrypted message published");
+    } else {
+      Serial.println("Failed to publish encrypted message");
+    }
+  
+
   Serial.println("Debug decrypt-1");
   unsigned char* decrypt = (unsigned char*) malloc (ciphertext_len);
   //new unsigned char[ciphertext_len];
@@ -175,14 +333,11 @@ void setup() {
   Serial.printf("%s", decrypt);
   //Serial.printf("\n%d", sizeof(decrypt));
   free(decrypt);
-
-}
-
-void loop() {
-
   // put your main code here, to run repeatedly:
   delay(1);  // this speeds up the simulation
 }
+
+
 
 
 
