@@ -15,6 +15,8 @@
 #include <StringArray.h>
 #include <FS.h>
 #include "Base64.h"
+#include <stdio.h>
+#include <stdlib.h>
 
 #define KEY_SIZE 16
 #define NONCE_SIZE 16
@@ -98,11 +100,11 @@ void setup() {
   config.pixel_format = PIXFORMAT_JPEG;
 
   if (psramFound()) {
-    config.frame_size = FRAMESIZE_UXGA;
+    config.frame_size = FRAMESIZE_HVGA;
     config.jpeg_quality = 10;
     config.fb_count = 2;
   } else {
-    config.frame_size = FRAMESIZE_SVGA;
+    config.frame_size = FRAMESIZE_CIF;
     config.jpeg_quality = 12;
     config.fb_count = 1;
   }
@@ -126,12 +128,14 @@ void setup() {
   Serial.println("DEbug 6");
   unsigned long long plaintext_len = strlen((char*)plaintext);
   Serial.println("DEbug 7");
-  unsigned char* ciphertext = new unsigned char[plaintext_len];
+  Serial.printf("%d", plaintext_len);
+  unsigned char* ciphertext = (unsigned char*) malloc (plaintext_len + TAGBYTES);
+  //new unsigned char[plaintext_len];
   Serial.println("DEbug 8");
   unsigned long long ciphertext_len = 0;
   unsigned char tag[TAGBYTES] = { 0 };
   
-  //Serial.printf("\n%s \n", plaintext);
+  Serial.printf("\n%s \n", plaintext);
   Serial.printf("Image converted to string successfully\n");
 
   int ret = crypto_aead_encrypt(ciphertext, &ciphertext_len,
@@ -148,10 +152,12 @@ void setup() {
   free(plaintext);
 
   Serial.printf("Encrypt success\n");
-  //Serial.printf("%s\n", ciphertext);
+  Serial.printf("%d", ciphertext_len);
+  Serial.printf("%s\n", ciphertext);
 
   Serial.println("Debug decrypt-1");
-  unsigned char* decrypt = new unsigned char[ciphertext_len];
+  unsigned char* decrypt = (unsigned char*) malloc (ciphertext_len);
+  //new unsigned char[ciphertext_len];
   Serial.println("Debug decrypt0");
   int inv = crypto_aead_decrypt(decrypt, &plaintext_len, NULL, ciphertext, ciphertext_len, ad, adlen, nonce, key);
   Serial.println("Debug decrypt1");
@@ -159,13 +165,17 @@ void setup() {
   if (inv != 0) {
     Serial.printf("Decrypt failed \n");
     Serial.println(inv);
-    exit(1);
+    free(ciphertext);
+    free(decrypt);
+    return;
   }
   //delete[] ciphertext;
   free(ciphertext);
   Serial.printf("Decrypt success\n");
-  Serial.println(reinterpret_cast<char*>(decrypt));
+  Serial.printf("%s", decrypt);
   //Serial.printf("\n%d", sizeof(decrypt));
+  free(decrypt);
+
 }
 
 void loop() {

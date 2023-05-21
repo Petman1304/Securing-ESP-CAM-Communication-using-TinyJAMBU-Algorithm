@@ -14,8 +14,10 @@ unsigned char* read_image(void){
   file.close();
 
   String base64Image = base64::encode(imageData.get(), fileSize);
-  unsigned char* buffer = new unsigned char[base64Image.length() + 1];
+  unsigned char* buffer = (unsigned char*) malloc (base64Image.length() + 1);
+  //new unsigned char[base64Image.length() + 1];
   Serial.println("DEbug 1");
+  Serial.println(base64Image.length());
 
   // Serial.println("Base64 Image:");
   // Serial.println(base64Image);
